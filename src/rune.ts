@@ -1,21 +1,6 @@
 let lessThen4 = 0, lessThen5 = 0, result = 0;
 const results: number[] = [];
 
-const newTest = (log: string, fn: () => void): void => {
-    console.log(log);
-    lessThen4 = 0;
-    lessThen5 = 0;
-    results.length = 0;
-    for (let i = 0; i < 10000; i++) {
-        result = 0;
-        fn();
-        results.push(result);
-    }
-    results.sort((a, b) => a - b);
-    console.log("平均值：", results.reduce((a, b) => a + b, 0) / 10000);
-    console.log("95%置信区间：", results.at(250), "~", results.at(-250));
-};
-
 const getColor = (v: number) => v % 5;
 const getCharacter = (v: number) => v % 8;
 
@@ -47,64 +32,105 @@ const randLine = (): number[] => {
             lessThen5++;
             lessThen4++;
     }
-    const line = Array.from({length: count}, () => Math.floor(Math.random() * 55));
-    line.sort((a, b) => a - b);
-    return line
+    return Array.from({length: count}, () => Math.floor(Math.random() * 55));
 };
 
-const findTwoSameWith = (
-    arr: number[],
-    predicate: (v: number) => boolean
-): number | undefined => {
-    for (let i = 1; i < arr.length; i++) {
-        const v = arr[i];
-        if (v === arr[i - 1] && predicate(v)) {
-            return v;
+interface TestConfig {
+    name: string;
+    find: (result: number[], cur: [number, number][]) => [number, number] | boolean | undefined;
+    after?: (cur: [number, number][]) => void;
+}
+
+const newTest = (d: TestConfig): void => {
+    console.log(d.name);
+    lessThen4 = 0;
+    lessThen5 = 0;
+    results.length = 0;
+    for (let i = 0; i < 10000; i++) {
+        result = 0;
+        const cur: [number, number][] = [];
+        for (let j = 0; j < 3; j++) {
+            while (true) {
+                const v = d.find(randLine(), cur);
+                if (!v) continue;
+                if (typeof v === "boolean") cur.push([0, 0]);
+                else cur.push(v);
+                break;
+            }
+        }
+        d.after?.(cur);
+        results.push(result);
+    }
+    results.sort((a, b) => a - b);
+    console.log("平均值：", results.reduce((a, b) => a + b, 0) / 10000);
+    console.log("95%置信区间：", results.at(250), "~", results.at(-250));
+};
+
+const filterSame = (arr: number[]): number[] => {
+    return arr.filter((v, i, arr) => {
+        if (v >= 15) {
+            for (let j = i + 1; j < arr.length; j++) {
+                if (v === arr[j]) return true;
+            }
+        }
+        return false;
+    });
+};
+
+newTest({
+    name: "===========六个完全相同的符石===========",
+    find: (result, cur) => {
+        const same = filterSame(result);
+        if (same.length === 0) return undefined;
+        const v = same.find(v => cur.some(arr => arr[0] === v));
+        if (v) return [v, v];
+        return cur.length < 2 ? [same[0], same[0]] : undefined;
+    },
+    after: (cur) => {
+        if (cur[0][0] !== cur[1][0]) {
+            while (true) {
+                const same = filterSame(randLine());
+                if (same.some(v => v === cur[2][0])) break;
+            }
         }
     }
-    return undefined;
-};
+});
 
-const newTestTwoSame = (log: string, predicate: (v: number) => boolean): void => {
-    newTest(log, () => {
-        let cur = [0, 0, 0];
-        for (let i = 0; i < 3; i++) {
+newTest({
+    name: "===========六金===========",
+    find: result => result.filter(v => v >= 15 && getColor(v) === 0).length >= 2
+});
+
+newTest({
+    name: "===========六乾===========",
+    find: result => result.filter(v => v >= 15 && getCharacter(v) === 0).length >= 2
+});
+
+newTest({
+    name: "===========六金乾===========",
+    find: result => result.filter(v => v === 15).length >= 2
+});
+
+newTest({
+    name: "===========六金同字===========",
+    find: (result, cur) => {
+        const same = filterSame(result).filter(v => getColor(v) === 0);
+        if (same.length === 0) return undefined;
+        const v = same.find(v => cur.some(arr => arr[0] === v));
+        if (v) return [v, v];
+        return cur.length < 2 ? [same[0], same[0]] : undefined;
+    },
+    after: (cur) => {
+        if (cur[0][0] !== cur[1][0]) {
             while (true) {
-                const v = findTwoSameWith(randLine(), predicate);
-                if (v) { // 随出任意两个相同有字符石
-                    cur[i] = v;
-                    if (i < 2 || cur[2] === cur[0] || cur[2] === cur[1]) {
-                        if (i === 2 && cur[0] !== cur[1]) {
-                            // 第三个和前两个有一个相同，但前两个不同，重新随一个相同的
-                            let v: number | undefined;
-                            do {
-                                v = findTwoSameWith(randLine(), predicate);
-                            } while (!v || v !== cur[2]);
-                        }
-                        break;
-                    }
-                }
+                const same = filterSame(randLine());
+                if (same.some(v => v === cur[2][0])) break;
             }
         }
-    });
-};
+    }
+});
 
-const newTestSpecific = (log: string, predicate: (v: number) => boolean): void => {
-    newTest(log, () => {
-        for (let i = 0; i < 3; i++) {
-            while (true) {
-                let count = 0;
-                for (const v of randLine()) {
-                    if (predicate(v)) count++;
-                }
-                if (count >= 2) break;
-            }
-        }
-    });
-};
-newTestTwoSame("===========六个完全相同的符石===========", v => v >= 15);
-newTestSpecific("===========六金===========", v => v >= 15 && getColor(v) === 0);
-newTestSpecific("===========六乾===========", v => v >= 15 && getCharacter(v) === 0);
-newTestSpecific("===========六金乾===========", v => v === 15);
-newTestTwoSame("===========六金同字===========", v => v >= 15 && getColor(v) === 0);
-newTestSpecific("===========六中庸===========", v => v < 15);
+newTest({
+    name: "===========六中庸===========",
+    find: result => result.filter(v => v < 15).length >= 2
+});
