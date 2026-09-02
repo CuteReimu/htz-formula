@@ -52,22 +52,33 @@ const randLine = (): number[] => {
     return line
 };
 
-const findTwoSame = (arr: number[]) => arr.find((v, index, arr) => index > 0 && v === arr[index - 1]);
+const findTwoSameWith = (
+    arr: number[],
+    predicate: (v: number) => boolean
+): number | undefined => {
+    for (let i = 1; i < arr.length; i++) {
+        const v = arr[i];
+        if (v === arr[i - 1] && predicate(v)) {
+            return v;
+        }
+    }
+    return undefined;
+};
 
 const newTestTwoSame = (log: string, predicate: (v: number) => boolean): void => {
     newTest(log, () => {
         let cur = [0, 0, 0];
         for (let i = 0; i < 3; i++) {
             while (true) {
-                const v = findTwoSame(randLine());
-                if (v && predicate(v)) { // 随出任意两个相同有字符石
+                const v = findTwoSameWith(randLine(), predicate);
+                if (v) { // 随出任意两个相同有字符石
                     cur[i] = v;
-                    if (i < 2 || cur[2] !== cur[0] && cur[2] !== cur[1]) {
-                        if (i == 2 && cur[0] !== cur[1]) {
+                    if (i < 2 || cur[2] === cur[0] || cur[2] === cur[1]) {
+                        if (i === 2 && cur[0] !== cur[1]) {
                             // 第三个和前两个有一个相同，但前两个不同，重新随一个相同的
                             let v: number | undefined;
                             do {
-                                v = findTwoSame(randLine());
+                                v = findTwoSameWith(randLine(), predicate);
                             } while (!v || v !== cur[2]);
                         }
                         break;
